@@ -1,0 +1,92 @@
+{
+  "project_name": "Sample Commerce Platform",
+  "project_description": "Create a planning and replenishment platform for retail operations.",
+  "session_started_utc": "2026-02-17T12:00:00Z",
+  "current_phase": "Maintenance Strategy",
+  "current_phase_index": 5,
+  "max_turns_per_phase": 8,
+  "global_max_turns": 48,
+  "total_turns": 28,
+  "interrupted": false,
+  "phase_states": {
+    "Requirements Gathering": {
+      "turn_count": 6,
+      "converged": true,
+      "approved_by_human": true,
+      "artifact": {
+        "phase": "Requirements Gathering",
+        "summary": "Requirements baseline approved including functional, non-functional, and business constraints.",
+        "artifact_check": {
+          "complete": true,
+          "missing_items": []
+        }
+      }
+    },
+    "System Design": {
+      "turn_count": 5,
+      "converged": true,
+      "approved_by_human": true,
+      "artifact": {
+        "phase": "System Design",
+        "summary": "Architecture decomposition and integration contracts defined.",
+        "artifact_check": {
+          "complete": true,
+          "missing_items": []
+        }
+      }
+    },
+    "Implementation Planning": {
+      "turn_count": 5,
+      "converged": true,
+      "approved_by_human": true,
+      "artifact": {
+        "phase": "Implementation Planning",
+        "summary": "Work packages, sequencing, and timeline agreed.",
+        "artifact_check": {
+          "complete": true,
+          "missing_items": []
+        }
+      }
+    },
+    "Testing Strategy": {
+      "turn_count": 4,
+      "converged": true,
+      "approved_by_human": true,
+      "artifact": {
+        "phase": "Testing Strategy",
+        "summary": "Quality gates and acceptance criteria finalized.",
+        "artifact_check": {
+          "complete": true,
+          "missing_items": []
+        }
+      }
+    },
+    "Deployment Planning": {
+      "turn_count": 4,
+      "converged": true,
+      "approved_by_human": true,
+      "artifact": {
+        "phase": "Deployment Planning",
+        "summary": "Rollout and rollback strategy approved.",
+        "artifact_check": {
+          "complete": true,
+          "missing_items": []
+        }
+      }
+    },
+    "Maintenance Strategy": {
+      "turn_count": 4,
+      "converged": true,
+      "approved_by_human": true,
+      "artifact": {
+        "phase": "Maintenance Strategy",
+        "summary": "Operations model and continuous improvement loop accepted.",
+        "artifact_check": {
+          "complete": true,
+          "missing_items": []
+        }
+      }
+    }
+  },
+  "transcript": []
+}

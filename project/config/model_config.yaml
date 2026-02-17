@@ -1,0 +1,41 @@
+defaults:
+  provider: cloud
+  deterministic_mode: false
+  temperature: 0.35
+  timeout_seconds: 45
+  max_turns_per_phase: 8
+  global_max_turns: 48
+  output_dir: output
+  logs_dir: logs
+
+providers:
+  cloud:
+    vendor: openai
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    models:
+      facilitator: gpt-4.1-mini
+      architect: gpt-4.1-mini
+      security: gpt-4.1-mini
+      product_manager: gpt-4.1-nano
+      business_analyst: gpt-4.1-nano
+      backend_engineer: gpt-4.1-nano
+      frontend_engineer: gpt-4.1-nano
+      devops_engineer: gpt-4.1-nano
+      qa_engineer: gpt-4.1-nano
+      ux_designer: gpt-4.1-nano
+  ollama:
+    vendor: ollama
+    base_url: http://localhost:11434/v1
+    api_key_env: OLLAMA_API_KEY
+    models:
+      facilitator: qwen3:8b
+      architect: qwen3:8b
+      security: qwen3:8b
+      product_manager: llama3.1:8b
+      business_analyst: llama3.1:8b
+      backend_engineer: llama3.1:8b
+      frontend_engineer: llama3.1:8b
+      devops_engineer: llama3.1:8b
+      qa_engineer: llama3.1:8b
+      ux_designer: llama3.1:8b
