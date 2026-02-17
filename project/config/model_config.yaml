@@ -16,8 +16,8 @@ providers:
     models:
       facilitator: gpt-4.1-mini
       architect: gpt-4.1-mini
-      security: gpt-4.1-mini
-      product_manager: gpt-4.1-nano
+      security_specialist: gpt-4.1-mini
+      product_manager: gpt-4.1-mini
       business_analyst: gpt-4.1-nano
       backend_engineer: gpt-4.1-nano
       frontend_engineer: gpt-4.1-nano
@@ -31,8 +31,8 @@ providers:
     models:
       facilitator: qwen3:8b
       architect: qwen3:8b
-      security: qwen3:8b
-      product_manager: llama3.1:8b
+      security_specialist: qwen3:8b
+      product_manager: qwen3:8b
       business_analyst: llama3.1:8b
       backend_engineer: llama3.1:8b
       frontend_engineer: llama3.1:8b

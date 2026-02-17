@@ -30,8 +30,8 @@ class CloudProvider(LLMProvider):
         if not model_name:
             raise ValueError(f"No cloud model configured for role '{role}'.")
 
-        # TODO(Q1): Verify final low-cost cloud models for February 2026 in production.
-        # ASSUMPTION(Q1): gpt-4.1-mini/nano tier remains available and suitable for this workflow.
+        # Model mapping is intentionally config-driven for cost/quality tuning.
+        # Tiering default: mini for facilitator/architect/security/product, nano for execution roles.
         return AgentModelConfig(
             role=role,
             model=model_name,

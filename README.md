@@ -33,7 +33,8 @@ project/
 │   ├── model_config.yaml
 │   └── settings.py
 ├── providers/
-│   └── llm_provider.py
+│   ├── llm_provider.py
+│   └── llm_adapter.py
 ├── agents/
 │   ├── base_agent.py
 │   ├── facilitator.py
@@ -135,8 +136,9 @@ Use `/interrupt` when prompted as human participant to stop safely.
 	- Facilitator
 	- Architect
 	- Security Specialist
+	- Product Manager
 - Lighter slots are assigned to:
-	- Product/BA
+	- Business Analyst
 	- Dev roles
 	- QA
 	- UX
