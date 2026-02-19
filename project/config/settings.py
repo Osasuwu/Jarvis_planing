@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 @dataclass(frozen=True)
 class RuntimeSettings:
     provider_name: str
+    meeting_language: str
     deterministic_mode: bool
     temperature: float
     timeout_seconds: int
@@ -40,6 +41,9 @@ def load_settings() -> RuntimeSettings:
 
     defaults = config.get("defaults", {})
     configured_provider = os.getenv("MODEL_PROVIDER", defaults.get("provider", "cloud"))
+    meeting_language = os.getenv("MEETING_LANGUAGE", "en").strip().lower()
+    if meeting_language not in {"en", "ru"}:
+        raise ValueError("MEETING_LANGUAGE must be 'en' or 'ru'.")
     providers = config.get("providers", {})
     provider_cfg = providers.get(configured_provider)
     if not provider_cfg:
@@ -58,8 +62,8 @@ def load_settings() -> RuntimeSettings:
 
     temperature = 0.0 if deterministic_mode else float(os.getenv("TEMPERATURE", defaults.get("temperature", 0.35)))
     timeout_seconds = int(os.getenv("TIMEOUT_SECONDS", defaults.get("timeout_seconds", 45)))
-    max_turns_per_phase = int(os.getenv("MAX_TURNS_PER_PHASE", defaults.get("max_turns_per_phase", 8)))
-    global_max_turns = int(os.getenv("GLOBAL_MAX_TURNS", defaults.get("global_max_turns", 48)))
+    max_turns_per_phase = int(os.getenv("MAX_TURNS_PER_PHASE", defaults.get("max_turns_per_phase", 16)))
+    global_max_turns = int(os.getenv("GLOBAL_MAX_TURNS", defaults.get("global_max_turns", 140)))
 
     output_dir = root / os.getenv("OUTPUT_DIR", defaults.get("output_dir", "output"))
     logs_dir = root / os.getenv("LOGS_DIR", defaults.get("logs_dir", "logs"))
@@ -71,6 +75,7 @@ def load_settings() -> RuntimeSettings:
 
     return RuntimeSettings(
         provider_name=configured_provider,
+        meeting_language=meeting_language,
         deterministic_mode=deterministic_mode,
         temperature=temperature,
         timeout_seconds=timeout_seconds,

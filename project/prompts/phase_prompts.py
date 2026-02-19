@@ -18,7 +18,25 @@ PHASE_ARTIFACT_REQUIREMENTS = {
 }
 
 
-def phase_context_prompt(phase_name: str) -> str:
+PHASE_ARTIFACT_REQUIREMENTS_RU = {
+    "Requirements Gathering": "Формальная спецификация требований (функциональные/нефункциональные требования и ограничения).",
+    "System Design": "Архитектурная спецификация, границы компонентов и стратегия интеграции.",
+    "Implementation Planning": "Декомпозиция реализации, график, план ресурсов и зависимости выполнения.",
+    "Testing Strategy": "Комплексная стратегия тестирования (unit/integration/system/UAT) и критерии приемки.",
+    "Deployment Planning": "План релиза, стратегия окружений, rollout/rollback и наблюдаемость.",
+    "Maintenance Strategy": "Операционная модель, обработка инцидентов, пострелизное управление и цикл улучшений.",
+}
+
+
+def phase_context_prompt(phase_name: str, language: str = "en") -> str:
+    if language == "ru":
+        artifact = PHASE_ARTIFACT_REQUIREMENTS_RU[phase_name]
+        return (
+            f"Текущая фаза Waterfall: {phase_name}. "
+            f"Строго оставайся в рамках этой фазы. "
+            f"Обязательный артефакт этой фазы: {artifact}."
+        )
+
     artifact = PHASE_ARTIFACT_REQUIREMENTS[phase_name]
     return (
         f"Current Waterfall phase: {phase_name}. "

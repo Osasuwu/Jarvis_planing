@@ -3,8 +3,8 @@ defaults:
   deterministic_mode: false
   temperature: 0.35
   timeout_seconds: 45
-  max_turns_per_phase: 8
-  global_max_turns: 48
+  max_turns_per_phase: 16
+  global_max_turns: 140
   output_dir: output
   logs_dir: logs
 
@@ -14,16 +14,18 @@ providers:
     base_url: https://api.openai.com/v1
     api_key_env: OPENAI_API_KEY
     models:
-      facilitator: gpt-4.1-mini
-      architect: gpt-4.1-mini
-      security_specialist: gpt-4.1-mini
-      product_manager: gpt-4.1-mini
-      business_analyst: gpt-4.1-nano
-      backend_engineer: gpt-4.1-nano
+      facilitator: gpt-5.1
+      architect: gpt-5.1
+      security_specialist: gpt-4.1
+      product_manager: gpt-4o
+      business_analyst: gpt-4.1-mini
+      backend_engineer: gpt-5.1-codex-mini
       frontend_engineer: gpt-4.1-nano
-      devops_engineer: gpt-4.1-nano
-      qa_engineer: gpt-4.1-nano
-      ux_designer: gpt-4.1-nano
+      devops_engineer: gpt-5.1-codex-mini
+      qa_engineer: gpt-4.1-mini
+      ux_designer: gpt-4o-mini
+      risk_Manager: gpt-4.1
+      cost_estimator: gpt-4.1-mini
   ollama:
     vendor: ollama
     base_url: http://localhost:11434/v1

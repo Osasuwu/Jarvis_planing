@@ -19,6 +19,10 @@ Python CLI system that simulates a real-world IT project kickoff meeting in stri
 - Deterministic mode support (temperature override)
 - Global/phase turn limits and loop prevention
 - Cloud-first model strategy with Ollama fallback via config
+- Human-readable CLI rendering of structured agent outputs
+- Bilingual meeting instructions for agents (`en`/`ru`) via environment switch
+- Phase-specific artifact schemas per Waterfall phase (instead of generic role payloads)
+- Convergence readiness score (0-100) with pre-cap guardrails
 - Full transcript logging
 - Structured outputs:
 	- Markdown project plan
@@ -29,9 +33,12 @@ Python CLI system that simulates a real-world IT project kickoff meeting in stri
 ```text
 project/
 ├── main.py
+├── main_ui.py
 ├── config/
 │   ├── model_config.yaml
 │   └── settings.py
+├── interaction/
+│   └── channel.py
 ├── providers/
 │   ├── llm_provider.py
 │   └── llm_adapter.py
@@ -85,6 +92,11 @@ Set at least one provider key:
 - Cloud mode: set `OPENAI_API_KEY` and keep `MODEL_PROVIDER=cloud`
 - Ollama mode: set `MODEL_PROVIDER=ollama` and run Ollama server
 
+Choose meeting language for all agent instructions/output style:
+
+- `MEETING_LANGUAGE=en` (default)
+- `MEETING_LANGUAGE=ru`
+
 3. Optional: adjust model/role mapping in `project/config/model_config.yaml`.
 
 ## Run
@@ -96,16 +108,29 @@ cd project
 python main.py
 ```
 
+Minimal UI mode (separate from CLI; includes multiline response box, quick yes/no buttons, interrupt button, status bar, and timestamped transcript view):
+
+```bash
+cd project
+python main_ui.py
+```
+
 ## CLI Flow
 
 1. Enter project name and initial description.
 2. Facilitator orchestrates role turns per phase.
 3. Human can answer clarifications.
 4. Human approves/rejects phase transition.
-5. At completion/interruption, system writes:
+5. CLI displays structured JSON contributions as readable bullet-style output (raw JSON remains in logs).
+6. At completion/interruption, system writes:
 	 - `project/output/project_development_plan_<timestamp>.md`
 	 - `project/output/project_development_plan_<timestamp>.json`
 	 - `project/logs/meeting_transcript_<timestamp>.log`
+
+If not all phases are converged + approved, outputs are exported as draft files:
+
+	 - `project/output/project_development_draft_<timestamp>.md`
+	 - `project/output/project_development_draft_<timestamp>.json`
 
 Use `/interrupt` when prompted as human participant to stop safely.
 
@@ -114,6 +139,7 @@ Use `/interrupt` when prompted as human participant to stop safely.
 ### `.env`
 
 - `MODEL_PROVIDER`: `cloud` or `ollama`
+- `MEETING_LANGUAGE`: `en` or `ru`
 - `OPENAI_API_KEY`: Cloud provider key
 - `DETERMINISTIC_MODE`: `true/false`
 - `TEMPERATURE`: ignored when deterministic mode is true
@@ -122,12 +148,24 @@ Use `/interrupt` when prompted as human participant to stop safely.
 - `GLOBAL_MAX_TURNS`: hard cap for full meeting
 - `OUTPUT_DIR`, `LOGS_DIR`: relative to `project/`
 
+Recommended starting values to avoid premature cutoffs in requirements/design phases:
+
+- `MAX_TURNS_PER_PHASE=16`
+- `GLOBAL_MAX_TURNS=140`
+
 ### `project/config/model_config.yaml`
 
 - Provider definitions (`cloud`, `ollama`)
 - Base URLs and API key env names
 - Role-to-model mapping
 - Default runtime controls
+
+## Working with Russian reference docs
+
+- Source references are in [project/references](project/references) (`Проект №1.docx`, `Проект №2.docx`, `Проект №3.docx`).
+- Use [project/references/reference_structure_template.md](project/references/reference_structure_template.md) as AI-readable normalized structure.
+- Paste converted text from your reference docs under those headings to feed context consistently.
+- Final markdown output now follows a structure aligned with these reference-style sections while remaining suitable for this project.
 
 ## Notes on Model Strategy
 
@@ -144,6 +182,21 @@ Use `/interrupt` when prompted as human participant to stop safely.
 	- UX
 
 Model names are configurable because market offerings can change over time.
+
+## Multilingual model options (if needed for stronger Russian quality)
+
+If default `gpt-4.1-*` quality in Russian is insufficient for your domain text, consider these alternatives:
+
+- Cloud candidates:
+	- `gpt-4o` / `gpt-4o-mini` (strong multilingual robustness, generally good RU handling)
+	- `Claude 3.5 Sonnet` / `Claude 3.7 Sonnet` (good long-form Russian reasoning/writing)
+	- `Gemini 1.5 Pro` / `Gemini 2.x` (good multilingual comprehension with large context)
+- Ollama/self-hosted candidates:
+	- `qwen2.5:14b` or newer Qwen multilingual variants
+	- `llama-3.1:8b/70b` (acceptable RU with prompt tuning)
+	- `mistral-nemo` / newer Mistral multilingual models
+
+Keep facilitator/architect/security/product on stronger models; execution roles can stay on lighter models.
 
 ## Example Run (short)
 

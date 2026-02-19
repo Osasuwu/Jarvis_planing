@@ -15,15 +15,22 @@ class AgentTurn:
 
 
 class BaseProjectAgent:
-    def __init__(self, role: str, system_prompt: str, provider: LLMProvider) -> None:
+    def __init__(self, role: str, system_prompt: str, provider: LLMProvider, language: str = "en") -> None:
         self.role = role
+        self.language = language
         model_cfg = provider.build_agent_model_config(role)
         self._adapter = AutoGenAdapter(name=role, system_prompt=system_prompt, model_cfg=model_cfg)
 
     def respond(self, phase: str, facilitator_instruction: str, context_messages: list[dict[str, str]]) -> AgentTurn:
-        phase_instruction = phase_context_prompt(phase)
+        phase_instruction = phase_context_prompt(phase, language=self.language)
+        language_instruction = (
+            "All natural-language values in your JSON response MUST be in English."
+            if self.language == "en"
+            else "Все текстовые значения в JSON-ответе ДОЛЖНЫ быть на русском языке, даже если входной контекст на английском."
+        )
         prompt = (
             f"{phase_instruction}\n"
+            f"{language_instruction}\n"
             f"Facilitator instruction: {facilitator_instruction}\n"
             "Return role-scoped response only."
         )

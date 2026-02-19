@@ -13,10 +13,11 @@ class ProjectPlanExporter:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def export(self, state: MeetingState) -> tuple[Path, Path]:
+    def export(self, state: MeetingState, finalized: bool) -> tuple[Path, Path]:
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        md_path = self.output_dir / f"project_development_plan_{stamp}.md"
-        json_path = self.output_dir / f"project_development_plan_{stamp}.json"
+        prefix = "project_development_plan" if finalized else "project_development_draft"
+        md_path = self.output_dir / f"{prefix}_{stamp}.md"
+        json_path = self.output_dir / f"{prefix}_{stamp}.json"
 
         md_path.write_text(render_markdown_plan(state), encoding="utf-8")
         json_path.write_text(json.dumps(state.to_json(), indent=2, ensure_ascii=False), encoding="utf-8")

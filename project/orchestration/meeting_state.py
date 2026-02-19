@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from orchestration.phase_artifacts import build_phase_artifact
+
 
 @dataclass
 class TranscriptEntry:
@@ -18,8 +20,12 @@ class TranscriptEntry:
 @dataclass
 class PhaseState:
     name: str
+    max_turns: int = 0
+    extension_count: int = 0
     turn_count: int = 0
     converged: bool = False
+    raw_contributions: list[dict[str, Any]] = field(default_factory=list)
+    draft_artifact: dict[str, Any] = field(default_factory=dict)
     artifact: dict[str, Any] = field(default_factory=dict)
     approved_by_human: bool = False
 
@@ -28,6 +34,7 @@ class PhaseState:
 class MeetingState:
     project_name: str
     project_description: str
+    meeting_language: str
     phases: list[str]
     max_turns_per_phase: int
     global_max_turns: int
@@ -39,7 +46,9 @@ class MeetingState:
     session_started_utc: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
     def __post_init__(self) -> None:
-        self.phase_states = {name: PhaseState(name=name) for name in self.phases}
+        self.phase_states = {
+            name: PhaseState(name=name, max_turns=self.max_turns_per_phase) for name in self.phases
+        }
 
     @property
     def current_phase(self) -> str:
@@ -54,7 +63,18 @@ class MeetingState:
         )
 
     def can_continue_phase(self) -> bool:
-        return self.phase_states[self.current_phase].turn_count < self.max_turns_per_phase
+        phase_state = self.phase_states[self.current_phase]
+        return phase_state.turn_count < phase_state.max_turns
+
+    def extend_current_phase_turn_limit(self, extra_turns: int, max_extensions: int = 3) -> bool:
+        phase_state = self.phase_states[self.current_phase]
+        if extra_turns <= 0:
+            return False
+        if phase_state.extension_count >= max_extensions:
+            return False
+        phase_state.max_turns += extra_turns
+        phase_state.extension_count += 1
+        return True
 
     def can_continue_meeting(self) -> bool:
         return self.total_turns < self.global_max_turns and not self.interrupted
@@ -63,6 +83,16 @@ class MeetingState:
         phase_state = self.phase_states[self.current_phase]
         phase_state.converged = True
         phase_state.artifact = artifact
+
+    def update_phase_draft(self, contribution: dict[str, Any]) -> None:
+        if not contribution:
+            return
+        phase_state = self.phase_states[self.current_phase]
+        phase_state.raw_contributions.append(contribution)
+        phase_state.draft_artifact = build_phase_artifact(
+            self.current_phase,
+            phase_state.raw_contributions,
+        )
 
     def approve_current_phase(self, approved: bool) -> None:
         self.phase_states[self.current_phase].approved_by_human = approved
@@ -73,10 +103,17 @@ class MeetingState:
         self.current_phase_index += 1
         return True
 
+    def is_fully_approved(self) -> bool:
+        return all(
+            phase_state.converged and phase_state.approved_by_human
+            for phase_state in self.phase_states.values()
+        )
+
     def to_json(self) -> dict[str, Any]:
         return {
             "project_name": self.project_name,
             "project_description": self.project_description,
+            "meeting_language": self.meeting_language,
             "session_started_utc": self.session_started_utc,
             "current_phase": self.current_phase,
             "current_phase_index": self.current_phase_index,
@@ -87,8 +124,12 @@ class MeetingState:
             "phase_states": {
                 phase: {
                     "turn_count": state.turn_count,
+                    "max_turns": state.max_turns,
+                    "extension_count": state.extension_count,
                     "converged": state.converged,
                     "approved_by_human": state.approved_by_human,
+                    "raw_contributions": state.raw_contributions,
+                    "draft_artifact": state.draft_artifact,
                     "artifact": state.artifact,
                 }
                 for phase, state in self.phase_states.items()
