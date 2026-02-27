@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from agents.architect import ArchitectAgent
@@ -8,6 +11,7 @@ from agents.backend_engineer import BackendEngineerAgent
 from agents.base_agent import BaseProjectAgent
 from agents.business_analyst import BusinessAnalystAgent
 from agents.devops_engineer import DevOpsEngineerAgent
+from project.agents.document_monitor import DocumentMonitorAgent
 from agents.facilitator import FacilitatorAgent
 from agents.frontend_engineer import FrontendEngineerAgent
 from agents.human_stakeholder import HumanStakeholderProxy
@@ -38,6 +42,12 @@ class WaterfallController:
         "ux": "ux_designer",
         "human": "human_stakeholder",
         "stakeholder": "human_stakeholder",
+        "document_writer": "document_monitor",
+        "doc_writer": "document_monitor",
+        "technical_writer": "document_monitor",
+        "formatter": "document_monitor",
+        "document_formatter": "document_monitor",
+        "document_monitor": "document_monitor",
     }
 
     def __init__(self, channel: InteractionChannel | None = None) -> None:
@@ -52,6 +62,7 @@ class WaterfallController:
         self.agents: dict[str, BaseProjectAgent] = {
             "product_manager": ProductManagerAgent(self.provider, language=self.language),
             "business_analyst": BusinessAnalystAgent(self.provider, language=self.language),
+            "document_monitor": DocumentMonitorAgent(self.provider, language=self.language),
             "architect": ArchitectAgent(self.provider, language=self.language),
             "backend_engineer": BackendEngineerAgent(self.provider, language=self.language),
             "frontend_engineer": FrontendEngineerAgent(self.provider, language=self.language),
@@ -63,25 +74,15 @@ class WaterfallController:
 
     def run(self) -> None:
         self.channel.display("=== Waterfall Kickoff Multi-Agent Simulator ===")
-        project_name = self.channel.prompt_text("Project name: ").strip() or "Untitled Project"
-        project_description = self.channel.prompt_text("Initial project description: ").strip()
-
-        state = MeetingState(
-            project_name=project_name,
-            project_description=project_description,
-            meeting_language=self.language,
-            phases=self.phase_manager.phases,
-            max_turns_per_phase=self.settings.max_turns_per_phase,
-            global_max_turns=self.settings.global_max_turns,
-        )
-
-        state.add_transcript("human_stakeholder", project_description)
+        state = self._initialize_or_resume_state()
+        self._save_phase_checkpoint(state, reason="session_start")
 
         try:
             self._run_phases(state)
         except KeyboardInterrupt:
             state.interrupted = True
             self.channel.display("\nMeeting interrupted by user.")
+            self._save_phase_checkpoint(state, reason="interrupted")
 
         exporter = ProjectPlanExporter(self.settings.output_dir)
         finalized = state.is_fully_approved()
@@ -91,7 +92,7 @@ class WaterfallController:
         self.channel.display("\n=== Meeting completed ===")
         if not finalized:
             self.channel.display("Meeting did not complete all approved Waterfall phases.")
-            self.channel.display("Exported draft artifacts instead of final plan.")
+            self.channel.display("Exported current plan snapshot with all captured phase artifacts.")
         self.channel.display(f"Markdown plan: {markdown_path}")
         self.channel.display(f"Structured JSON: {json_path}")
         self.channel.display(f"Transcript log: {log_path}")
@@ -100,12 +101,15 @@ class WaterfallController:
         while state.can_continue_meeting():
             phase_name = state.current_phase
             self.channel.display(f"\n--- Phase: {phase_name} ---")
+            if self.settings.new_dialog_per_phase and state.phase_states[phase_name].turn_count == 0:
+                self._start_phase_dialogs()
 
             converged = self._run_single_phase(state)
             if not converged:
                 if self._handle_phase_limit_recovery(state):
                     continue
                 self.channel.display(f"Phase '{phase_name}' did not converge within configured turn limit.")
+                self._save_phase_checkpoint(state, reason="phase_not_converged")
                 break
 
             approved = self._request_human_approval(phase_name)
@@ -113,11 +117,14 @@ class WaterfallController:
             if not approved:
                 state.phase_states[phase_name].converged = False
                 self.channel.display(f"Phase '{phase_name}' rejected. Continuing discussion in same phase.")
+                self._save_phase_checkpoint(state, reason="phase_rejected")
                 continue
 
             self._print_phase_recap(state, phase_name)
+            self._save_phase_checkpoint(state, reason="phase_approved")
 
             if not state.transition_to_next_phase():
+                self._save_phase_checkpoint(state, reason="all_phases_completed")
                 break
 
     def _run_single_phase(self, state: MeetingState) -> bool:
@@ -138,6 +145,12 @@ class WaterfallController:
             selected_speaker = facilitator_decision.get("selected_speaker", "business_analyst")
             selected_speaker = self._resolve_selected_speaker(state, selected_speaker)
             instruction = facilitator_decision.get("instruction", "Provide concise phase contribution.")
+
+            if self._needs_document_monitor(state.current_phase, selected_speaker, instruction):
+                selected_speaker = "document_monitor"
+                self.channel.display(
+                    "[Guardrail] Documentation monitoring/structuring task detected; rerouting to document_monitor."
+                )
 
             if missing_required_roles and selected_speaker not in missing_required_roles and selected_speaker != "human_stakeholder":
                 selected_speaker = missing_required_roles[0]
@@ -202,6 +215,162 @@ class WaterfallController:
 
         return False
 
+    @staticmethod
+    def _needs_document_monitor(phase: str, selected_speaker: str, instruction: str) -> bool:
+        if phase != "Requirements Gathering":
+            return False
+        if selected_speaker == "document_monitor":
+            return False
+
+        text = (instruction or "").lower()
+        formatting_markers = (
+            "format",
+            "formatted",
+            "reformat",
+            "structure",
+            "structured",
+            "consolidat",
+            "specification",
+            "coverage",
+            "completeness",
+            "undercovered",
+            "finalize document",
+            "оформ",
+            "структур",
+            "консолид",
+            "спецификац",
+            "документ",
+            "полнот",
+            "покрыти",
+            "упущен",
+        )
+        return any(marker in text for marker in formatting_markers)
+
+    @staticmethod
+    def _slugify(value: str) -> str:
+        slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", value.strip().lower())
+        return slug.strip("_") or "project"
+
+    def _checkpoint_dir(self) -> Path:
+        path = self.settings.output_dir / "checkpoints"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _save_phase_checkpoint(self, state: MeetingState, reason: str) -> Path:
+        stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        phase_no = state.current_phase_index + 1
+        filename = (
+            f"meeting_checkpoint_{self._slugify(state.project_name)}_"
+            f"p{phase_no:02d}_{reason}_{stamp}.json"
+        )
+        path = self._checkpoint_dir() / filename
+        payload = state.to_json()
+        payload["checkpoint_reason"] = reason
+        payload["checkpoint_created_utc"] = datetime.utcnow().isoformat()
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+        self.channel.display(f"[Checkpoint] Saved: {path}")
+        return path
+
+    def _list_checkpoint_files(self) -> list[Path]:
+        checkpoint_paths = sorted(
+            self._checkpoint_dir().glob("meeting_checkpoint_*.json"),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        )
+        if checkpoint_paths:
+            return checkpoint_paths
+
+        legacy = sorted(
+            self.settings.output_dir.glob("project_development_*.json"),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        )
+        return legacy
+
+    def _pick_checkpoint_file(self) -> Path | None:
+        checkpoints = self._list_checkpoint_files()
+        if not checkpoints:
+            self.channel.display("No checkpoints found; starting a new meeting.")
+            return None
+
+        self.channel.display("Available checkpoints:")
+        preview = checkpoints[:12]
+        for index, path in enumerate(preview, start=1):
+            self.channel.display(f"  {index}. {path.name}")
+
+        raw_choice = self.channel.prompt_text(
+            f"Select checkpoint number (1-{len(preview)}) or press Enter for latest: "
+        ).strip()
+        if not raw_choice:
+            return preview[0]
+        try:
+            chosen = int(raw_choice)
+        except ValueError:
+            self.channel.display("Invalid selection; using latest checkpoint.")
+            return preview[0]
+        if chosen < 1 or chosen > len(preview):
+            self.channel.display("Selection out of range; using latest checkpoint.")
+            return preview[0]
+        return preview[chosen - 1]
+
+    def _prompt_resume_phase(self, state: MeetingState) -> int:
+        self.channel.display("Phases available for resume:")
+        for index, phase_name in enumerate(state.phases, start=1):
+            phase_state = state.phase_states[phase_name]
+            marker = "[current]" if index - 1 == state.current_phase_index else ""
+            self.channel.display(
+                f"  {index}. {phase_name} {marker} | turns={phase_state.turn_count} "
+                f"| converged={phase_state.converged} | approved={phase_state.approved_by_human}"
+            )
+
+        raw_choice = self.channel.prompt_text(
+            f"Choose phase to continue from (1-{len(state.phases)}) or Enter for current phase: "
+        ).strip()
+        if not raw_choice:
+            return state.current_phase_index
+        try:
+            value = int(raw_choice)
+        except ValueError:
+            self.channel.display("Invalid phase number; using current phase.")
+            return state.current_phase_index
+        if value < 1 or value > len(state.phases):
+            self.channel.display("Phase out of range; using current phase.")
+            return state.current_phase_index
+        return value - 1
+
+    def _initialize_or_resume_state(self) -> MeetingState:
+        resume = self.channel.prompt_yes_no("Resume from saved checkpoint? [y/n]: ")
+        if resume:
+            selected = self._pick_checkpoint_file()
+            if selected is not None:
+                try:
+                    with selected.open("r", encoding="utf-8") as handle:
+                        payload = json.load(handle)
+                    state = MeetingState.from_json(payload)
+                    state.interrupted = False
+                    self.channel.display(f"Loaded checkpoint: {selected}")
+                    phase_index = self._prompt_resume_phase(state)
+                    if phase_index != state.current_phase_index:
+                        state.resume_from_phase(phase_index)
+                        self.channel.display(f"Resumed from phase: {state.current_phase}")
+                    return state
+                except Exception as exc:
+                    self.channel.display(f"Failed to load checkpoint ({exc}). Starting a new meeting.")
+
+        project_name = self.channel.prompt_text("Project name: ").strip() or "Untitled Project"
+        project_description = self.channel.prompt_text("Initial project description: ").strip()
+        state = MeetingState(
+            project_name=project_name,
+            project_description=project_description,
+            meeting_language=self.language,
+            phases=self.phase_manager.phases,
+            max_turns_per_phase=self.settings.max_turns_per_phase,
+            global_max_turns=self.settings.global_max_turns,
+        )
+        state.add_transcript("human_stakeholder", project_description)
+        return state
+
     def _missing_required_roles_for_phase(self, state: MeetingState) -> list[str]:
         required_roles = self.phase_manager.required_roles_for_phase(state.current_phase)
         if not required_roles:
@@ -247,7 +416,11 @@ class WaterfallController:
         phase = state.current_phase
         phase_prompt = phase_context_prompt(phase, language=self.language)
         allowed_roles = self.phase_manager.allowed_roles_for_phase(phase)
-        last_turns = state.transcript[-8:]
+        if self.settings.smart_forgetting:
+            phase_transcript = [entry for entry in state.transcript if entry.phase == phase]
+            last_turns = phase_transcript[-8:]
+        else:
+            last_turns = state.transcript[-8:]
         transcript_window = "\n".join(
             f"{entry.speaker}: {entry.content}" for entry in last_turns
         )
@@ -296,10 +469,57 @@ class WaterfallController:
                     return {}
             return {}
 
-    @staticmethod
-    def _build_context_messages(state: MeetingState) -> list[dict[str, str]]:
-        window = state.transcript[-10:]
-        return [{"role": "user", "content": f"{entry.speaker}: {entry.content}"} for entry in window]
+    def _compact_phase_memory(self, state: MeetingState) -> str:
+        if self.settings.phase_memory_limit <= 0:
+            return ""
+
+        current_index = state.current_phase_index
+        phase_names = state.phases[max(0, current_index - self.settings.phase_memory_limit):current_index]
+        memory_lines: list[str] = []
+        for phase_name in phase_names:
+            phase_state = state.phase_states[phase_name]
+            artifact = phase_state.artifact
+            if not isinstance(artifact, dict) or not artifact:
+                continue
+            summary = str(artifact.get("summary", "")).strip()
+            document = artifact.get("document", {})
+            doc_keys = []
+            if isinstance(document, dict):
+                doc_keys = list(document.keys())[:6]
+            sections_text = ", ".join(doc_keys) if doc_keys else "(none)"
+            memory_lines.append(
+                f"- {phase_name}: summary='{summary[:240]}', sections={sections_text}"
+            )
+
+        if not memory_lines:
+            return ""
+
+        return (
+            "Compressed memory from earlier approved phases (for continuity only, do not restate verbatim):\n"
+            + "\n".join(memory_lines)
+        )
+
+    def _build_context_messages(self, state: MeetingState) -> list[dict[str, str]]:
+        if self.settings.smart_forgetting:
+            phase_entries = [entry for entry in state.transcript if entry.phase == state.current_phase]
+            window = phase_entries[-self.settings.context_window_turns :]
+        else:
+            window = state.transcript[-max(10, self.settings.context_window_turns) :]
+
+        messages: list[dict[str, str]] = []
+        memory = self._compact_phase_memory(state)
+        if memory:
+            messages.append({"role": "user", "content": memory})
+        messages.extend(
+            {"role": "user", "content": f"{entry.speaker}: {entry.content}"}
+            for entry in window
+        )
+        return messages
+
+    def _start_phase_dialogs(self) -> None:
+        self.facilitator.start_new_dialog()
+        for agent in self.agents.values():
+            agent.start_new_dialog()
 
     def _print_phase_draft_for_human(self, state: MeetingState) -> None:
         draft = state.phase_states[state.current_phase].draft_artifact
@@ -307,7 +527,7 @@ class WaterfallController:
             self.channel.display("\n[Info] No consolidated phase artifact is currently available for review yet.")
             return
 
-        self.channel.display("\n[Phase Draft Artifact For Review]")
+        self.channel.display("\n[Phase Artifact Snapshot For Review]")
         self.channel.display(WaterfallController._render_human_readable_payload(draft))
 
     def _print_facilitator_turn(self, parsed: dict[str, Any], raw_content: str) -> None:

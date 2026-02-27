@@ -15,7 +15,7 @@ class ProjectPlanExporter:
 
     def export(self, state: MeetingState, finalized: bool) -> tuple[Path, Path]:
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        prefix = "project_development_plan" if finalized else "project_development_draft"
+        prefix = "project_development_plan"
         md_path = self.output_dir / f"{prefix}_{stamp}.md"
         json_path = self.output_dir / f"{prefix}_{stamp}.json"
 

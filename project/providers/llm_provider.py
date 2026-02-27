@@ -13,6 +13,8 @@ class AgentModelConfig:
     config_list: list[dict[str, str]]
     temperature: float
     timeout: int
+    retry_attempts: int
+    retry_backoff_seconds: float
 
 
 class LLMProvider(ABC):
@@ -26,51 +28,57 @@ class LLMProvider(ABC):
 
 class CloudProvider(LLMProvider):
     def build_agent_model_config(self, role: str) -> AgentModelConfig:
-        model_name = self.settings.model_map.get(role)
-        if not model_name:
-            raise ValueError(f"No cloud model configured for role '{role}'.")
+        config_list: list[dict[str, str]] = []
+        first_model = ""
+        for provider_name in self.settings.provider_chain:
+            provider_settings = self.settings.providers[provider_name]
+            model_name = provider_settings.model_map.get(role)
+            if not model_name:
+                continue
 
-        # Model mapping is intentionally config-driven for cost/quality tuning.
-        # Tiering default: mini for facilitator/architect/security/product, nano for execution roles.
-        return AgentModelConfig(
-            role=role,
-            model=model_name,
-            config_list=[
+            api_key = provider_settings.api_key
+            if provider_settings.vendor == "ollama" and not api_key:
+                api_key = "ollama"
+            if provider_settings.vendor != "ollama" and not api_key:
+                continue
+
+            if not first_model:
+                first_model = model_name
+
+            config_list.append(
                 {
                     "model": model_name,
-                    "api_key": self.settings.api_key,
-                    "base_url": self.settings.base_url,
+                    "api_key": api_key,
+                    "base_url": provider_settings.base_url,
+                    "provider_name": provider_name,
                 }
-            ],
+            )
+
+        if not config_list:
+            providers = ", ".join(self.settings.provider_chain)
+            raise ValueError(f"No model configured for role '{role}' across providers: {providers}.")
+
+        return AgentModelConfig(
+            role=role,
+            model=first_model,
+            config_list=config_list,
             temperature=self.settings.temperature,
             timeout=self.settings.timeout_seconds,
+            retry_attempts=self.settings.retry_attempts,
+            retry_backoff_seconds=self.settings.retry_backoff_seconds,
         )
 
 
 class OllamaProvider(LLMProvider):
     def build_agent_model_config(self, role: str) -> AgentModelConfig:
-        model_name = self.settings.model_map.get(role)
-        if not model_name:
-            raise ValueError(f"No ollama model configured for role '{role}'.")
-
-        return AgentModelConfig(
-            role=role,
-            model=model_name,
-            config_list=[
-                {
-                    "model": model_name,
-                    "api_key": self.settings.api_key or "ollama",
-                    "base_url": self.settings.base_url,
-                }
-            ],
-            temperature=self.settings.temperature,
-            timeout=self.settings.timeout_seconds,
-        )
+        return CloudProvider(self.settings).build_agent_model_config(role)
 
 
 def provider_factory(settings: RuntimeSettings) -> LLMProvider:
-    if settings.provider_name == "cloud":
-        return CloudProvider(settings)
-    if settings.provider_name == "ollama":
+    configured = settings.providers.get(settings.provider_name)
+    if not configured:
+        raise ValueError(f"Unsupported provider: {settings.provider_name}")
+
+    if configured.vendor == "ollama":
         return OllamaProvider(settings)
-    raise ValueError(f"Unsupported provider: {settings.provider_name}")
+    return CloudProvider(settings)

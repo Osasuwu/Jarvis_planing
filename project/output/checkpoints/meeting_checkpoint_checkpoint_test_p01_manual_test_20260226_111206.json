@@ -1,0 +1,93 @@
+{
+  "project_name": "checkpoint_test",
+  "project_description": "x",
+  "meeting_language": "en",
+  "session_started_utc": "2026-02-26T11:12:06.517006",
+  "phases": [
+    "Requirements Gathering",
+    "System Design",
+    "Implementation Planning",
+    "Testing Strategy",
+    "Deployment Planning",
+    "Maintenance Strategy"
+  ],
+  "current_phase": "Requirements Gathering",
+  "current_phase_index": 0,
+  "max_turns_per_phase": 4,
+  "global_max_turns": 40,
+  "total_turns": 1,
+  "interrupted": false,
+  "phase_states": {
+    "Requirements Gathering": {
+      "turn_count": 1,
+      "max_turns": 4,
+      "extension_count": 0,
+      "converged": false,
+      "approved_by_human": false,
+      "raw_contributions": [],
+      "draft_artifact": {},
+      "artifact": {}
+    },
+    "System Design": {
+      "turn_count": 0,
+      "max_turns": 4,
+      "extension_count": 0,
+      "converged": false,
+      "approved_by_human": false,
+      "raw_contributions": [],
+      "draft_artifact": {},
+      "artifact": {}
+    },
+    "Implementation Planning": {
+      "turn_count": 0,
+      "max_turns": 4,
+      "extension_count": 0,
+      "converged": false,
+      "approved_by_human": false,
+      "raw_contributions": [],
+      "draft_artifact": {},
+      "artifact": {}
+    },
+    "Testing Strategy": {
+      "turn_count": 0,
+      "max_turns": 4,
+      "extension_count": 0,
+      "converged": false,
+      "approved_by_human": false,
+      "raw_contributions": [],
+      "draft_artifact": {},
+      "artifact": {}
+    },
+    "Deployment Planning": {
+      "turn_count": 0,
+      "max_turns": 4,
+      "extension_count": 0,
+      "converged": false,
+      "approved_by_human": false,
+      "raw_contributions": [],
+      "draft_artifact": {},
+      "artifact": {}
+    },
+    "Maintenance Strategy": {
+      "turn_count": 0,
+      "max_turns": 4,
+      "extension_count": 0,
+      "converged": false,
+      "approved_by_human": false,
+      "raw_contributions": [],
+      "draft_artifact": {},
+      "artifact": {}
+    }
+  },
+  "transcript": [
+    {
+      "turn": 1,
+      "phase": "Requirements Gathering",
+      "speaker": "human_stakeholder",
+      "content": "x",
+      "timestamp_utc": "2026-02-26T11:12:06.517044"
+    }
+  ],
+  "checkpoint_reason": "manual_test",
+  "checkpoint_created_utc": "2026-02-26T11:12:06.519868"
+}

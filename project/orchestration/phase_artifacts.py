@@ -8,6 +8,9 @@ PHASE_ARTIFACT_SCHEMAS: dict[str, list[str]] = {
         "functional_requirements",
         "non_functional_requirements",
         "constraints",
+        "formatted_specification",
+        "coverage_good",
+        "coverage_gaps",
         "open_questions",
         "stakeholders",
         "success_criteria",
@@ -93,6 +96,7 @@ def build_phase_artifact(phase_name: str, contributions: list[dict[str, Any]]) -
 
     if phase_name == "Requirements Gathering":
         ba = latest.get("business_analyst", {})
+        monitor = latest.get("document_monitor", latest.get("document_formatter", {}))
         pm = latest.get("product_manager", {})
         sec = latest.get("security_specialist", {})
         artifact.update(
@@ -102,7 +106,12 @@ def build_phase_artifact(phase_name: str, contributions: list[dict[str, Any]]) -
                     ba.get("non_functional_requirements"), sec.get("security_controls")
                 ),
                 "constraints": _merge_values(ba.get("constraints")),
-                "open_questions": _merge_values(ba.get("clarifications"), pm.get("open_risks")),
+                "formatted_specification": _merge_values(
+                    monitor.get("formatted_specification"), monitor.get("document_sections")
+                ),
+                "coverage_good": _merge_values(monitor.get("coverage_good")),
+                "coverage_gaps": _merge_values(monitor.get("coverage_gaps")),
+                "open_questions": _merge_values(ba.get("clarifications"), pm.get("open_risks"), monitor.get("coverage_gaps")),
                 "stakeholders": _merge_values(pm.get("insights")),
                 "success_criteria": _merge_values(pm.get("decisions")),
             }

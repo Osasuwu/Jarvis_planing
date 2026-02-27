@@ -109,12 +109,97 @@ class MeetingState:
             for phase_state in self.phase_states.values()
         )
 
+    def resume_from_phase(self, phase_index: int) -> None:
+        if phase_index < 0 or phase_index >= len(self.phases):
+            raise ValueError(f"Invalid phase index: {phase_index}")
+
+        keep_phases = set(self.phases[:phase_index])
+        self.transcript = [entry for entry in self.transcript if entry.phase in keep_phases]
+
+        self.total_turns = 0
+        for entry in self.transcript:
+            self.total_turns += 1
+            entry.turn = self.total_turns
+
+        for phase_name in self.phases[phase_index:]:
+            self.phase_states[phase_name] = PhaseState(name=phase_name, max_turns=self.max_turns_per_phase)
+
+        self.current_phase_index = phase_index
+        self.interrupted = False
+
+    @classmethod
+    def from_json(cls, payload: dict[str, Any]) -> "MeetingState":
+        phases = payload.get("phases")
+        if not isinstance(phases, list) or not phases:
+            phase_states_payload = payload.get("phase_states", {})
+            if isinstance(phase_states_payload, dict) and phase_states_payload:
+                phases = list(phase_states_payload.keys())
+            else:
+                raise ValueError("Checkpoint payload does not contain phases information.")
+
+        state = cls(
+            project_name=str(payload.get("project_name", "Untitled Project")),
+            project_description=str(payload.get("project_description", "")),
+            meeting_language=str(payload.get("meeting_language", "en")),
+            phases=[str(phase) for phase in phases],
+            max_turns_per_phase=int(payload.get("max_turns_per_phase", 16)),
+            global_max_turns=int(payload.get("global_max_turns", 140)),
+            current_phase_index=int(payload.get("current_phase_index", 0)),
+            total_turns=int(payload.get("total_turns", 0)),
+            interrupted=bool(payload.get("interrupted", False)),
+            session_started_utc=str(payload.get("session_started_utc", datetime.utcnow().isoformat())),
+        )
+
+        phase_states_payload = payload.get("phase_states", {})
+        if isinstance(phase_states_payload, dict):
+            restored_phase_states: dict[str, PhaseState] = {}
+            for phase_name in state.phases:
+                raw = phase_states_payload.get(phase_name, {})
+                restored_phase_states[phase_name] = PhaseState(
+                    name=phase_name,
+                    max_turns=int(raw.get("max_turns", state.max_turns_per_phase)),
+                    extension_count=int(raw.get("extension_count", 0)),
+                    turn_count=int(raw.get("turn_count", 0)),
+                    converged=bool(raw.get("converged", False)),
+                    raw_contributions=list(raw.get("raw_contributions", [])),
+                    draft_artifact=dict(raw.get("draft_artifact", {})),
+                    artifact=dict(raw.get("artifact", {})),
+                    approved_by_human=bool(raw.get("approved_by_human", False)),
+                )
+            state.phase_states = restored_phase_states
+
+        transcript_payload = payload.get("transcript", [])
+        restored_transcript: list[TranscriptEntry] = []
+        if isinstance(transcript_payload, list):
+            for index, row in enumerate(transcript_payload, start=1):
+                if not isinstance(row, dict):
+                    continue
+                restored_transcript.append(
+                    TranscriptEntry(
+                        turn=int(row.get("turn", index)),
+                        phase=str(row.get("phase", state.current_phase)),
+                        speaker=str(row.get("speaker", "unknown")),
+                        content=str(row.get("content", "")),
+                        timestamp_utc=str(row.get("timestamp_utc", datetime.utcnow().isoformat())),
+                    )
+                )
+        state.transcript = restored_transcript
+
+        if state.current_phase_index < 0 or state.current_phase_index >= len(state.phases):
+            state.current_phase_index = 0
+
+        if state.total_turns <= 0:
+            state.total_turns = len(state.transcript)
+
+        return state
+
     def to_json(self) -> dict[str, Any]:
         return {
             "project_name": self.project_name,
             "project_description": self.project_description,
             "meeting_language": self.meeting_language,
             "session_started_utc": self.session_started_utc,
+            "phases": self.phases,
             "current_phase": self.current_phase,
             "current_phase_index": self.current_phase_index,
             "max_turns_per_phase": self.max_turns_per_phase,

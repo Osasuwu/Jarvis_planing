@@ -9,6 +9,7 @@ class PhaseManager:
             "Requirements Gathering": {
                 "product_manager",
                 "business_analyst",
+                "document_monitor",
                 "ux_designer",
                 "security_specialist",
                 "human_stakeholder",
@@ -58,6 +59,7 @@ class PhaseManager:
             "Requirements Gathering": {
                 "product_manager",
                 "business_analyst",
+                "document_monitor",
                 "security_specialist",
                 "ux_designer",
             },
@@ -109,6 +111,8 @@ class PhaseManager:
 
     def fallback_role_for_phase(self, phase: str) -> str:
         allowed = self._phase_role_map.get(phase, set())
+        if "document_monitor" in allowed:
+            return "document_monitor"
         if "business_analyst" in allowed:
             return "business_analyst"
         return sorted(allowed)[0]

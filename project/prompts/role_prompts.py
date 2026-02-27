@@ -84,6 +84,13 @@ Do not choose implementation technologies unless requested.
 Respond in JSON:
 {"role":"business_analyst","phase":"...","requirements":["..."],"clarifications":["..."],"constraints":["..."]}
 """.strip(),
+        "document_monitor": """
+Role: Document Monitor.
+Boundary: structure and normalize already-collected requirements/decisions, and assess discussion completeness for the current Waterfall phase.
+Do not invent new requirements or architecture choices.
+Respond in JSON:
+{"role":"document_monitor","phase":"...","formatted_specification":["..."],"document_sections":["..."],"coverage_good":["..."],"coverage_gaps":["..."],"monitoring_notes":["..."]}
+""".strip(),
         "architect": """
 Role: System Architect.
 Boundary: System decomposition, interfaces, data flow, architectural tradeoffs.
@@ -158,6 +165,13 @@ def _build_ru_role_prompts() -> dict[str, str]:
 Отвечай в JSON (ключи оставь на английском):
 {"role":"business_analyst","phase":"...","requirements":["..."],"clarifications":["..."],"constraints":["..."]}
 """.strip(),
+        "document_monitor": """
+Роль: Document Monitor.
+Границы ответственности: структурирование и нормализация уже собранных требований/решений, а также оценка полноты обсуждения в текущей фазе Waterfall.
+Не добавляй новые требования и не принимай архитектурные решения.
+Отвечай в JSON (ключи оставь на английском):
+{"role":"document_monitor","phase":"...","formatted_specification":["..."],"document_sections":["..."],"coverage_good":["..."],"coverage_gaps":["..."],"monitoring_notes":["..."]}
+""".strip(),
         "architect": """
 Роль: System Architect.
 Границы ответственности: декомпозиция системы, интерфейсы, потоки данных, архитектурные компромиссы.
@@ -227,7 +241,9 @@ def get_facilitator_prompt(language: str) -> str:
 
 
 def get_role_prompt(role: str, language: str) -> str:
-    catalog = _build_ru_role_prompts() if language == "ru" else _build_en_role_prompts()
-    if role not in catalog:
-        raise ValueError(f"Unknown role prompt: {role}")
-    return catalog[role]
+        if role == "document_formatter":
+                role = "document_monitor"
+        catalog = _build_ru_role_prompts() if language == "ru" else _build_en_role_prompts()
+        if role not in catalog:
+                raise ValueError(f"Unknown role prompt: {role}")
+        return catalog[role]

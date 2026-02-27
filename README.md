@@ -16,14 +16,16 @@ Python CLI system that simulates a real-world IT project kickoff meeting in stri
 	6. Maintenance Strategy
 - Human stakeholder participation (interactive CLI proxy)
 - Human approval gate before phase transition
+- Phase checkpoints saved during meeting flow, with resume-from-phase support
 - Deterministic mode support (temperature override)
 - Global/phase turn limits and loop prevention
-- Cloud-first model strategy with Ollama fallback via config
+- Multi-provider fallback chain (provider1 -> provider2 -> ... -> ollama)
 - Human-readable CLI rendering of structured agent outputs
 - Bilingual meeting instructions for agents (`en`/`ru`) via environment switch
 - Phase-specific artifact schemas per Waterfall phase (instead of generic role payloads)
 - Convergence readiness score (0-100) with pre-cap guardrails
 - Full transcript logging
+- Dedicated document monitor role for requirements/spec structuring and phase coverage completeness checks
 - Structured outputs:
 	- Markdown project plan
 	- JSON machine-readable plan/session data
@@ -89,8 +91,8 @@ copy .env.example .env
 
 Set at least one provider key:
 
-- Cloud mode: set `OPENAI_API_KEY` and keep `MODEL_PROVIDER=cloud`
-- Ollama mode: set `MODEL_PROVIDER=ollama` and run Ollama server
+- Chain mode (recommended): set `MODEL_PROVIDER=openrouter`, configure `BACKUP_MODEL_PROVIDERS`, and provide keys for providers you want to use
+- Local-only mode: set `MODEL_PROVIDER=ollama` and run Ollama server
 
 Choose meeting language for all agent instructions/output style:
 
@@ -118,19 +120,16 @@ python main_ui.py
 ## CLI Flow
 
 1. Enter project name and initial description.
-2. Facilitator orchestrates role turns per phase.
-3. Human can answer clarifications.
-4. Human approves/rejects phase transition.
-5. CLI displays structured JSON contributions as readable bullet-style output (raw JSON remains in logs).
-6. At completion/interruption, system writes:
+2. (Optional) Resume from checkpoint and choose the phase to continue from.
+3. Facilitator orchestrates role turns per phase.
+4. Human can answer clarifications.
+5. Human approves/rejects phase transition.
+6. CLI displays structured JSON contributions as readable bullet-style output (raw JSON remains in logs).
+7. At completion/interruption, system writes:
 	 - `project/output/project_development_plan_<timestamp>.md`
 	 - `project/output/project_development_plan_<timestamp>.json`
 	 - `project/logs/meeting_transcript_<timestamp>.log`
-
-If not all phases are converged + approved, outputs are exported as draft files:
-
-	 - `project/output/project_development_draft_<timestamp>.md`
-	 - `project/output/project_development_draft_<timestamp>.json`
+	 - `project/output/checkpoints/meeting_checkpoint_<project>_...json`
 
 Use `/interrupt` when prompted as human participant to stop safely.
 
@@ -138,12 +137,19 @@ Use `/interrupt` when prompted as human participant to stop safely.
 
 ### `.env`
 
-- `MODEL_PROVIDER`: `cloud` or `ollama`
+- `MODEL_PROVIDER`: starting provider name from `project/config/model_config.yaml` (for example: `openrouter`, `groq`, `openai`)
 - `MEETING_LANGUAGE`: `en` or `ru`
-- `OPENAI_API_KEY`: Cloud provider key
+- `BACKUP_MODEL_PROVIDERS`: ordered comma-separated fallback providers (example: `groq,together,mistral,fireworks,deepinfra,openai,ollama`)
+- `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `TOGETHER_API_KEY`, `MISTRAL_API_KEY`, `FIREWORKS_API_KEY`, `DEEPINFRA_API_KEY`, `OPENAI_API_KEY`, `OLLAMA_API_KEY`
 - `DETERMINISTIC_MODE`: `true/false`
 - `TEMPERATURE`: ignored when deterministic mode is true
 - `TIMEOUT_SECONDS`: per-request timeout
+- `RETRY_ATTEMPTS`: retries per provider before fallback switch
+- `RETRY_BACKOFF_SECONDS`: retry delay multiplier (seconds)
+- `NEW_DIALOG_PER_PHASE`: reset agent dialogs on phase transition (`false` keeps one continuous conversation)
+- `SMART_FORGETTING`: use phase-scoped context windows instead of long global transcript (`true/false`)
+- `CONTEXT_WINDOW_TURNS`: number of recent turns kept in context window
+- `PHASE_MEMORY_LIMIT`: number of prior phases to include as compressed memory
 - `MAX_TURNS_PER_PHASE`: hard cap per phase
 - `GLOBAL_MAX_TURNS`: hard cap for full meeting
 - `OUTPUT_DIR`, `LOGS_DIR`: relative to `project/`
@@ -155,10 +161,18 @@ Recommended starting values to avoid premature cutoffs in requirements/design ph
 
 ### `project/config/model_config.yaml`
 
-- Provider definitions (`cloud`, `ollama`)
+- Provider definitions (`openrouter`, `groq`, `together`, `mistral`, `fireworks`, `deepinfra`, `openai`, `ollama`)
 - Base URLs and API key env names
 - Role-to-model mapping
 - Default runtime controls
+
+## Provider Chain Behavior
+
+- The runtime starts with `MODEL_PROVIDER`.
+- If a request fails after configured retries, the system moves to the next provider in `BACKUP_MODEL_PROVIDERS`.
+- Chain order is respected exactly as configured.
+- Providers missing API keys are skipped automatically (except `ollama`, which can run locally).
+- Keep `ollama` as the last fallback for offline/local resilience.
 
 ## Working with Russian reference docs
 
@@ -169,7 +183,7 @@ Recommended starting values to avoid premature cutoffs in requirements/design ph
 
 ## Notes on Model Strategy
 
-- Cloud-first for low local resource usage.
+- API-provider chain first, Ollama last-resort for local/offline fallback.
 - Heavier reasoning slots are assigned to:
 	- Facilitator
 	- Architect
@@ -197,6 +211,17 @@ If default `gpt-4.1-*` quality in Russian is insufficient for your domain text, 
 	- `mistral-nemo` / newer Mistral multilingual models
 
 Keep facilitator/architect/security/product on stronger models; execution roles can stay on lighter models.
+
+## Suggested free-tier starting models by provider
+
+- OpenRouter: `google/gemma-3-27b-it:free`, `qwen/qwen3-14b:free`, `qwen/qwen3-8b:free`, `deepseek/deepseek-r1-distill-qwen-14b:free`
+- Groq: `llama-3.1-8b-instant` (usually easiest free/low-cost start), `llama-3.3-70b-versatile`
+- Together: `deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free`, `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo`
+- Mistral: trial credits often map best to `mistral-small-latest`
+- Fireworks: trial credits with `accounts/fireworks/models/llama-v3p1-8b-instruct`
+- DeepInfra: trial credits with `meta-llama/Llama-3.1-8B-Instruct`
+- OpenAI: no permanent free tier; if credits exist, use `gpt-4.1-mini` / `gpt-4o-mini`
+- Ollama (local fallback): `qwen3:8b`, `llama3.1:8b`
 
 ## Example Run (short)
 

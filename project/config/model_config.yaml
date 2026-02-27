@@ -1,8 +1,15 @@
 defaults:
-  provider: cloud
+  provider: openrouter
+  backup_providers: [groq, together, mistral, fireworks, deepinfra, openai, ollama]
   deterministic_mode: false
   temperature: 0.35
   timeout_seconds: 45
+  retry_attempts: 2
+  retry_backoff_seconds: 1.4
+  new_dialog_per_phase: false
+  smart_forgetting: false
+  context_window_turns: 6
+  phase_memory_limit: 2
   max_turns_per_phase: 16
   global_max_turns: 140
   output_dir: output
@@ -19,13 +26,148 @@ providers:
       security_specialist: gpt-4.1
       product_manager: gpt-4o
       business_analyst: gpt-4.1-mini
+      document_monitor: gpt-4.1-mini
       backend_engineer: gpt-5.1-codex-mini
       frontend_engineer: gpt-4.1-nano
       devops_engineer: gpt-5.1-codex-mini
       qa_engineer: gpt-4.1-mini
       ux_designer: gpt-4o-mini
-      risk_Manager: gpt-4.1
+      risk_manager: gpt-4.1
       cost_estimator: gpt-4.1-mini
+
+  openai:
+    vendor: openai
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    models:
+      facilitator: gpt-5.1
+      architect: gpt-5.1
+      security_specialist: gpt-4.1
+      product_manager: gpt-4o
+      business_analyst: gpt-4.1-mini
+      document_monitor: gpt-4.1-mini
+      backend_engineer: gpt-5.1-codex-mini
+      frontend_engineer: gpt-4.1-nano
+      devops_engineer: gpt-5.1-codex-mini
+      qa_engineer: gpt-4.1-mini
+      ux_designer: gpt-4o-mini
+      risk_manager: gpt-4.1
+      cost_estimator: gpt-4.1-mini
+
+  openrouter:
+    vendor: openrouter
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    models:
+      facilitator: google/gemma-3-27b-it:free
+      architect: qwen/qwen3-32b:free
+      security_specialist: deepseek/deepseek-r1-distill-llama-70b:free
+      product_manager: qwen/qwen3-14b:free
+      business_analyst: qwen/qwen3-8b:free
+      document_monitor: qwen/qwen3-8b:free
+      backend_engineer: qwen/qwen3-14b:free
+      frontend_engineer: qwen/qwen3-8b:free
+      devops_engineer: qwen/qwen3-14b:free
+      qa_engineer: qwen/qwen3-8b:free
+      ux_designer: qwen/qwen3-8b:free
+      risk_manager: deepseek/deepseek-r1-distill-qwen-14b:free
+      cost_estimator: qwen/qwen3-8b:free
+
+  groq:
+    vendor: groq
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    models:
+      facilitator: llama-3.3-70b-versatile
+      architect: llama-3.3-70b-versatile
+      security_specialist: llama-3.3-70b-versatile
+      product_manager: llama-3.1-8b-instant
+      business_analyst: llama-3.1-8b-instant
+      document_monitor: llama-3.1-8b-instant
+      backend_engineer: llama-3.3-70b-versatile
+      frontend_engineer: llama-3.1-8b-instant
+      devops_engineer: llama-3.3-70b-versatile
+      qa_engineer: llama-3.1-8b-instant
+      ux_designer: llama-3.1-8b-instant
+      risk_manager: llama-3.3-70b-versatile
+      cost_estimator: llama-3.1-8b-instant
+
+  together:
+    vendor: together
+    base_url: https://api.together.xyz/v1
+    api_key_env: TOGETHER_API_KEY
+    models:
+      facilitator: meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
+      architect: meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
+      security_specialist: mistralai/Mixtral-8x22B-Instruct-v0.1
+      product_manager: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+      business_analyst: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+      document_monitor: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+      backend_engineer: deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free
+      frontend_engineer: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+      devops_engineer: deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free
+      qa_engineer: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+      ux_designer: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+      risk_manager: mistralai/Mixtral-8x22B-Instruct-v0.1
+      cost_estimator: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+
+  mistral:
+    vendor: mistral
+    base_url: https://api.mistral.ai/v1
+    api_key_env: MISTRAL_API_KEY
+    models:
+      facilitator: mistral-small-latest
+      architect: mistral-small-latest
+      security_specialist: mistral-small-latest
+      product_manager: mistral-small-latest
+      business_analyst: mistral-small-latest
+      document_monitor: mistral-small-latest
+      backend_engineer: mistral-small-latest
+      frontend_engineer: mistral-small-latest
+      devops_engineer: mistral-small-latest
+      qa_engineer: mistral-small-latest
+      ux_designer: mistral-small-latest
+      risk_manager: mistral-small-latest
+      cost_estimator: mistral-small-latest
+
+  fireworks:
+    vendor: fireworks
+    base_url: https://api.fireworks.ai/inference/v1
+    api_key_env: FIREWORKS_API_KEY
+    models:
+      facilitator: accounts/fireworks/models/llama-v3p1-70b-instruct
+      architect: accounts/fireworks/models/llama-v3p1-70b-instruct
+      security_specialist: accounts/fireworks/models/llama-v3p1-70b-instruct
+      product_manager: accounts/fireworks/models/llama-v3p1-8b-instruct
+      business_analyst: accounts/fireworks/models/llama-v3p1-8b-instruct
+      document_monitor: accounts/fireworks/models/llama-v3p1-8b-instruct
+      backend_engineer: accounts/fireworks/models/llama-v3p1-70b-instruct
+      frontend_engineer: accounts/fireworks/models/llama-v3p1-8b-instruct
+      devops_engineer: accounts/fireworks/models/llama-v3p1-70b-instruct
+      qa_engineer: accounts/fireworks/models/llama-v3p1-8b-instruct
+      ux_designer: accounts/fireworks/models/llama-v3p1-8b-instruct
+      risk_manager: accounts/fireworks/models/llama-v3p1-70b-instruct
+      cost_estimator: accounts/fireworks/models/llama-v3p1-8b-instruct
+
+  deepinfra:
+    vendor: deepinfra
+    base_url: https://api.deepinfra.com/v1/openai
+    api_key_env: DEEPINFRA_API_KEY
+    models:
+      facilitator: meta-llama/Llama-3.3-70B-Instruct
+      architect: meta-llama/Llama-3.3-70B-Instruct
+      security_specialist: deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+      product_manager: meta-llama/Llama-3.1-8B-Instruct
+      business_analyst: meta-llama/Llama-3.1-8B-Instruct
+      document_monitor: meta-llama/Llama-3.1-8B-Instruct
+      backend_engineer: deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+      frontend_engineer: meta-llama/Llama-3.1-8B-Instruct
+      devops_engineer: deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+      qa_engineer: meta-llama/Llama-3.1-8B-Instruct
+      ux_designer: meta-llama/Llama-3.1-8B-Instruct
+      risk_manager: deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+      cost_estimator: meta-llama/Llama-3.1-8B-Instruct
+
   ollama:
     vendor: ollama
     base_url: http://localhost:11434/v1
@@ -36,8 +178,11 @@ providers:
       security_specialist: qwen3:8b
       product_manager: qwen3:8b
       business_analyst: llama3.1:8b
+      document_monitor: llama3.1:8b
       backend_engineer: llama3.1:8b
       frontend_engineer: llama3.1:8b
       devops_engineer: llama3.1:8b
       qa_engineer: llama3.1:8b
       ux_designer: llama3.1:8b
+      risk_manager: qwen3:8b
+      cost_estimator: llama3.1:8b

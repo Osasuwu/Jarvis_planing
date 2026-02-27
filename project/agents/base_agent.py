@@ -21,6 +21,9 @@ class BaseProjectAgent:
         model_cfg = provider.build_agent_model_config(role)
         self._adapter = AutoGenAdapter(name=role, system_prompt=system_prompt, model_cfg=model_cfg)
 
+    def start_new_dialog(self) -> None:
+        self._adapter.start_new_dialog()
+
     def respond(self, phase: str, facilitator_instruction: str, context_messages: list[dict[str, str]]) -> AgentTurn:
         phase_instruction = phase_context_prompt(phase, language=self.language)
         language_instruction = (
